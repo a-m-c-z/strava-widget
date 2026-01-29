@@ -11,9 +11,9 @@ services:
       - key: STRAVA_CLIENT_SECRET
         sync: false
       - key: START_DATE
-        value: "2025-01-01"
+        value: "2026-01-01"
       - key: END_DATE
-        value: "2025-12-31"
+        value: "2026-12-31"
       - key: PORT
         value: "3000"
       - key: NODE_ENV
