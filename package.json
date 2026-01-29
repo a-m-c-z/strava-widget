@@ -1,0 +1,21 @@
+{
+  "name": "strava-tracker",
+  "version": "1.0.0",
+  "description": "Track Strava activities for fundraising challenges",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "collect": "node collect-data.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "axios": "^1.6.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
