@@ -13,7 +13,7 @@ const PORT = process.env.PORT || 3000;
 // Get them from: https://www.strava.com/settings/api
 const STRAVA_CLIENT_ID = process.env.STRAVA_CLIENT_ID || 'CLIENT_ID';
 const STRAVA_CLIENT_SECRET = process.env.STRAVA_CLIENT_SECRET || 'CLIENT_SECRET';
-const REDIRECT_URI = process.env.REDIRECT_URI || `http://localhost:${PORT}/auth/callback`;
+const REDIRECT_URI = process.env.REDIRECT_URI || `https://strava-tracker.onrender.com/auth/callback`;
 
 // File to store athlete tokens (in production, use a proper database)
 const TOKENS_FILE = path.join(__dirname, 'athlete_tokens.json');
@@ -217,7 +217,7 @@ app.get('/health', (req, res) => {
 // Start server
 app.listen(PORT, async () => {
     await initializeFiles();
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Server running on https://strava-tracker.onrender.com`);
     console.log(`Make sure to set your Strava API credentials!`);
     
     // Start cron job for automatic data collection (optional)
