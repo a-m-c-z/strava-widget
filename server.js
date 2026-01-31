@@ -30,18 +30,32 @@ app.use(express.json());
 app.use(express.static('public'));
 
 // Session middleware for admin authentication
-app.use(session({
+// In production, store sessions on the persistent disk instead of in memory
+const sessionOptions = {
     secret: SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
     cookie: {
-        secure: process.env.NODE_ENV === 'production', // HTTPS in production
+        secure: process.env.NODE_ENV === 'production',
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
-}));
+};
 
-// Initialize data files if they don't exist
+if (process.env.NODE_ENV === 'production') {
+    const FileStore = require('session-file-store')(session);
+    sessionOptions.store = new FileStore({
+        path: path.join(DATA_DIR, 'sessions'),
+        ttl: 86400 // 24 hours in seconds
+    });
+}
+
+app.use(session(sessionOptions));
+
+// Initialize data directory and files if they don't exist
 async function initializeFiles() {
+    // Ensure the data directory exists first
+    await fs.mkdir(DATA_DIR, { recursive: true });
+
     try {
         await fs.access(TOKENS_FILE);
     } catch {
