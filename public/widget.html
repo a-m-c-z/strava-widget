@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Strava Distance Tracker Widget</title>
+    <title>Strava Distance Tracker</title>
     <style>
         * {
             margin: 0;
@@ -17,352 +17,405 @@
         }
 
         .tracker-widget {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 12px;
-            padding: 25px;
-            color: white;
+            background: white;
+            border-radius: 16px;
+            padding: 30px 25px;
             max-width: 500px;
             margin: 0 auto;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            border: 1px solid #eee;
         }
 
+        /* Logo */
         .tracker-header {
             text-align: center;
-            margin-bottom: 20px;
+            margin-bottom: 25px;
         }
 
-        .tracker-header h2 {
-            font-size: 24px;
-            margin-bottom: 5px;
+        .tracker-header img {
+            max-width: 100%;
+            max-height: 80px;
+            object-fit: contain;
         }
 
-        .tracker-header p {
-            font-size: 14px;
-            opacity: 0.9;
+        /* Progress bar */
+        .progress-container {
+            margin-bottom: 22px;
         }
 
-        .distance-display {
-            background: rgba(255, 255, 255, 0.15);
+        .progress-bar-track {
+            width: 100%;
+            height: 14px;
+            background: #f0f0f0;
+            border-radius: 7px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            border-radius: 7px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transition: width 0.6s ease;
+            min-width: 0;
+        }
+
+        .progress-bar-fill.exceeded {
+            background: linear-gradient(90deg, #38a169, #2ecc71);
+        }
+
+        /* Stats row: current / target / remaining */
+        .stats-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 22px;
+        }
+
+        .stat-box {
+            flex: 1;
+            text-align: center;
+            padding: 16px 8px;
+            background: #f8f9fa;
             border-radius: 10px;
-            padding: 30px 20px;
-            text-align: center;
-            margin-bottom: 20px;
-            backdrop-filter: blur(10px);
         }
 
-        .distance-value {
-            font-size: 48px;
-            font-weight: bold;
-            line-height: 1;
-            margin-bottom: 5px;
+        .stat-box.exceeded-box {
+            background: #f0fff4;
         }
 
-        .distance-unit {
-            font-size: 18px;
-            opacity: 0.9;
-        }
-
-        .miles-value {
-            font-size: 14px;
-            opacity: 0.8;
-            margin-top: 8px;
-        }
-
-        .athlete-count {
-            text-align: center;
-            font-size: 14px;
-            opacity: 0.9;
-            margin-bottom: 15px;
-        }
-
-        .athlete-count strong {
-            font-size: 20px;
-            display: block;
-            margin-bottom: 3px;
-        }
-
-        .leaderboard {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 15px;
-            max-height: 200px;
-            overflow-y: auto;
-        }
-
-        .leaderboard h3 {
-            font-size: 16px;
-            margin-bottom: 12px;
-            text-align: center;
-        }
-
-        .athlete-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            font-size: 14px;
-        }
-
-        .athlete-item:last-child {
-            border-bottom: none;
-        }
-
-        .athlete-name {
-            font-weight: 500;
-        }
-
-        .athlete-distance {
-            opacity: 0.9;
-        }
-
-        .last-updated {
-            text-align: center;
+        .stat-label {
             font-size: 11px;
-            opacity: 0.7;
-            margin-top: 15px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: #888;
+            margin-bottom: 6px;
+            font-weight: 600;
         }
 
-        .loading {
-            text-align: center;
-            padding: 40px;
-            font-size: 16px;
+        .stat-value {
+            font-size: 26px;
+            font-weight: 700;
+            color: #333;
+            line-height: 1.1;
         }
 
-        .error {
-            background: rgba(255, 0, 0, 0.2);
-            padding: 15px;
-            border-radius: 8px;
-            text-align: center;
+        .stat-value .unit {
             font-size: 14px;
+            font-weight: 500;
+            color: #888;
         }
 
-        /* Scrollbar styling */
-        .leaderboard::-webkit-scrollbar {
-            width: 6px;
+        .stat-box.exceeded-box .stat-value {
+            color: #38a169;
         }
 
-        .leaderboard::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 3px;
-        }
-
-        .leaderboard::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.3);
-            border-radius: 3px;
-        }
-
-        .activity-breakdown {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 15px;
-        }
-
-        .activity-breakdown h3 {
-            font-size: 16px;
-            margin-bottom: 12px;
+        /* Target exceeded banner */
+        .exceeded-banner {
+            background: #f0fff4;
+            border: 1px solid #c6f6d5;
+            border-radius: 10px;
+            padding: 12px 16px;
             text-align: center;
+            margin-bottom: 22px;
+            color: #276749;
+            font-weight: 600;
+            font-size: 15px;
         }
 
-        .activity-type {
+        /* Activity breakdown */
+        .section-title {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: #888;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .activity-list {
+            margin-bottom: 22px;
+        }
+
+        .activity-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 8px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 9px 0;
+            border-bottom: 1px solid #f0f0f0;
             font-size: 14px;
         }
 
-        .activity-type:last-child {
+        .activity-row:last-child {
             border-bottom: none;
         }
 
-        .activity-type-name {
+        .activity-left {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
         }
 
         .activity-icon {
             font-size: 18px;
+            width: 20px;
+            text-align: center;
         }
 
-        .activity-stats {
+        .activity-name {
+            color: #333;
+        }
+
+        .activity-right {
             text-align: right;
         }
 
-        .activity-distance {
+        .activity-miles {
             font-weight: 600;
+            color: #333;
         }
 
         .activity-count {
             font-size: 11px;
-            opacity: 0.7;
+            color: #999;
+        }
+
+        /* Leaderboard */
+        .leaderboard {
+            margin-bottom: 22px;
+        }
+
+        .leaderboard-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 9px 0;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 14px;
+        }
+
+        .leaderboard-row:last-child {
+            border-bottom: none;
+        }
+
+        .leaderboard-name {
+            color: #333;
+        }
+
+        .leaderboard-miles {
+            font-weight: 600;
+            color: #333;
+        }
+
+        /* Footer */
+        .last-updated {
+            text-align: center;
+            font-size: 11px;
+            color: #bbb;
+            padding-top: 10px;
+            border-top: 1px solid #f0f0f0;
+        }
+
+        /* Loading / error states */
+        .loading, .error-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+            font-size: 15px;
+        }
+
+        .error-state {
+            color: #e53e3e;
         }
     </style>
 </head>
 <body>
     <div class="tracker-widget" id="widget">
-        <div class="loading">Loading distance data...</div>
+        <div class="loading">Loading...</div>
     </div>
 
     <script>
         // IMPORTANT: Replace this URL with your actual API endpoint
-        const API_URL = 'https://strava-tracker.onrender.com/api/stats';
-        
-        // How often to refresh data (in milliseconds)
-        const REFRESH_INTERVAL = 60000; // 60 seconds
+        const API_URL = 'http://localhost:3000/api/stats';
 
-        // Map activity types to emojis
+        // Path to your logo image (relative to this file, or an absolute URL)
+        const LOGO_SRC = 'media/logo_text.png';
+
+        const REFRESH_INTERVAL = 60000;
+
+        const KM_TO_MILES = 0.621371;
+
+        function toMiles(km) {
+            return km * KM_TO_MILES;
+        }
+
+        function fmt(miles) {
+            return miles.toFixed(1);
+        }
+
         function getActivityIcon(type) {
             const icons = {
-                'Run': '🏃',
-                'Ride': '🚴',
-                'Walk': '🚶',
-                'Hike': '🥾',
-                'Swim': '🏊',
-                'VirtualRide': '🚴',
-                'VirtualRun': '🏃',
-                'Workout': '💪',
-                'WeightTraining': '🏋️',
-                'Yoga': '🧘',
-                'Crossfit': '🏃',
-                'Elliptical': '🏃',
-                'StairStepper': '🪜',
-                'RockClimbing': '🧗',
-                'IceSkate': '⛸️',
-                'InlineSkate': '⛸️',
-                'Kayaking': '🛶',
-                'Canoeing': '🛶',
-                'Rowing': '🚣',
-                'Snowboard': '🏂',
-                'Ski': '⛷️',
-                'AlpineSki': '⛷️',
-                'BackcountrySki': '⛷️',
-                'NordicSki': '⛷️',
-                'Snowshoe': '🎿',
-                'Golf': '⛳',
-                'Soccer': '⚽',
-                'Default': '🏃'
+                'Run': '🏃', 'Ride': '🚴', 'Walk': '🚶', 'Hike': '🥾',
+                'Swim': '🏊', 'VirtualRide': '🚴', 'VirtualRun': '🏃',
+                'Workout': '💪', 'WeightTraining': '🏋️', 'Yoga': '🧘',
+                'Crossfit': '🏃', 'Elliptical': '🏃', 'StairStepper': '🪜',
+                'RockClimbing': '🧗', 'IceSkate': '⛸️', 'InlineSkate': '⛸️',
+                'Kayaking': '🛶', 'Canoeing': '🛶', 'Rowing': '🚣',
+                'Snowboard': '🏂', 'Ski': '⛷️', 'AlpineSki': '⛷️',
+                'BackcountrySki': '⛷️', 'NordicSki': '⛷️', 'Snowshoe': '🎿',
+                'Golf': '⛳', 'Soccer': '⚽'
             };
-            return icons[type] || icons['Default'];
-        }
-
-        async function fetchStats() {
-            try {
-                const response = await fetch(API_URL);
-                if (!response.ok) throw new Error('Failed to fetch data');
-                return await response.json();
-            } catch (error) {
-                console.error('Error fetching stats:', error);
-                throw error;
-            }
-        }
-
-        function formatDistance(km) {
-            return km.toFixed(1);
+            return icons[type] || '🏃';
         }
 
         function formatDate(isoString) {
             if (!isoString) return 'Never';
-            const date = new Date(isoString);
-            return date.toLocaleString('en-GB', { 
-                day: 'numeric',
-                month: 'short',
-                hour: '2-digit',
-                minute: '2-digit'
+            return new Date(isoString).toLocaleString('en-GB', {
+                day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
             });
         }
 
+        async function fetchStats() {
+            const response = await fetch(API_URL);
+            if (!response.ok) throw new Error('Failed to fetch');
+            return await response.json();
+        }
+
         function renderWidget(stats) {
-            const widget = document.getElementById('widget');
-            
-            // Activity breakdown HTML
-            const activityBreakdownHTML = stats.activityTypeBreakdown && Object.keys(stats.activityTypeBreakdown).length > 0 ? `
-                <div class="activity-breakdown">
-                    <h3>📊 Distance by Activity</h3>
-                    ${Object.keys(stats.activityTypeBreakdown)
-                        .sort((a, b) => stats.activityTypeBreakdown[b].distance - stats.activityTypeBreakdown[a].distance)
-                        .map(type => {
-                            const data = stats.activityTypeBreakdown[type];
+            const currentMiles = toMiles(stats.totalDistance || 0);
+            const target = stats.mileTarget || 0;
+            const exceeded = target > 0 && currentMiles >= target;
+            const remaining = target > 0 ? Math.max(0, target - currentMiles) : null;
+            const progressPercent = target > 0 ? Math.min((currentMiles / target) * 100, 100) : 0;
+
+            // Progress bar
+            let progressHTML = '';
+            if (target > 0) {
+                progressHTML = `
+                    <div class="progress-container">
+                        <div class="progress-bar-track">
+                            <div class="progress-bar-fill ${exceeded ? 'exceeded' : ''}" style="width: ${progressPercent}%"></div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Exceeded banner
+            let exceededHTML = '';
+            if (exceeded) {
+                exceededHTML = `
+                    <div class="exceeded-banner">
+                        🎉 Target exceeded by ${fmt(currentMiles - target)} miles!
+                    </div>
+                `;
+            }
+
+            // Stats row
+            let statsRowHTML = '';
+            if (target > 0) {
+                statsRowHTML = `
+                    <div class="stats-row">
+                        <div class="stat-box">
+                            <div class="stat-label">Covered</div>
+                            <div class="stat-value">${fmt(currentMiles)} <span class="unit">mi</span></div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-label">Target</div>
+                            <div class="stat-value">${fmt(target)} <span class="unit">mi</span></div>
+                        </div>
+                        <div class="stat-box ${exceeded ? 'exceeded-box' : ''}">
+                            <div class="stat-label">${exceeded ? 'Exceeded' : 'Remaining'}</div>
+                            <div class="stat-value">${fmt(exceeded ? currentMiles - target : remaining)} <span class="unit">mi</span></div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // No target set — just show total
+                statsRowHTML = `
+                    <div class="stats-row">
+                        <div class="stat-box" style="flex: none; width: 100%; margin: 0 auto;">
+                            <div class="stat-label">Total Distance</div>
+                            <div class="stat-value" style="font-size: 36px;">${fmt(currentMiles)} <span class="unit">miles</span></div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Activity breakdown
+            let activityHTML = '';
+            if (stats.activityTypeBreakdown && Object.keys(stats.activityTypeBreakdown).length > 0) {
+                const sorted = Object.keys(stats.activityTypeBreakdown)
+                    .sort((a, b) => stats.activityTypeBreakdown[b].distance - stats.activityTypeBreakdown[a].distance);
+
+                activityHTML = `
+                    <div class="activity-list">
+                        <div class="section-title">Distance by Activity</div>
+                        ${sorted.map(type => {
+                            const d = stats.activityTypeBreakdown[type];
                             return `
-                                <div class="activity-type">
-                                    <div class="activity-type-name">
+                                <div class="activity-row">
+                                    <div class="activity-left">
                                         <span class="activity-icon">${getActivityIcon(type)}</span>
-                                        <span>${type}</span>
+                                        <span class="activity-name">${type}</span>
                                     </div>
-                                    <div class="activity-stats">
-                                        <div class="activity-distance">${formatDistance(data.distance)} km</div>
-                                        <div class="activity-count">${data.count} ${data.count === 1 ? 'activity' : 'activities'}</div>
+                                    <div class="activity-right">
+                                        <div class="activity-miles">${fmt(toMiles(d.distance))} mi</div>
+                                        <div class="activity-count">${d.count} ${d.count === 1 ? 'activity' : 'activities'}</div>
                                     </div>
                                 </div>
                             `;
                         }).join('')}
-                </div>
-            ` : '';
-            
-            const leaderboardHTML = stats.athletes && stats.athletes.length > 0 ? `
-                <div class="leaderboard">
-                    <h3>🏃 Leaderboard</h3>
-                    ${stats.athletes.map((athlete, index) => `
-                        <div class="athlete-item">
-                            <span class="athlete-name">${index + 1}. ${athlete.name}</span>
-                            <span class="athlete-distance">${formatDistance(athlete.distance)} km</span>
-                        </div>
-                    `).join('')}
-                </div>
-            ` : '';
+                    </div>
+                `;
+            }
 
-            widget.innerHTML = `
+            // Leaderboard
+            let leaderboardHTML = '';
+            if (stats.athletes && stats.athletes.length > 0) {
+                leaderboardHTML = `
+                    <div class="leaderboard">
+                        <div class="section-title">Leaderboard</div>
+                        ${stats.athletes.map((a, i) => `
+                            <div class="leaderboard-row">
+                                <span class="leaderboard-name">${i + 1}. ${a.name}</span>
+                                <span class="leaderboard-miles">${fmt(toMiles(a.distance))} mi</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+
+            document.getElementById('widget').innerHTML = `
                 <div class="tracker-header">
-                    <h2>🚴 Team Challenge Progress</h2>
-                    <p>Collective distance covered</p>
+                    <img src="${LOGO_SRC}" alt="Challenge Logo">
                 </div>
-                
-                <div class="distance-display">
-                    <div class="distance-value">${formatDistance(stats.totalDistance)}</div>
-                    <div class="distance-unit">kilometers</div>
-                    <div class="miles-value">${formatDistance(stats.totalDistanceMiles)} miles</div>
-                </div>
-
-                <div class="athlete-count">
-                    <strong>${stats.athleteCount}</strong>
-                    <span>active ${stats.athleteCount === 1 ? 'athlete' : 'athletes'}</span>
-                </div>
-
-                ${activityBreakdownHTML}
+                ${progressHTML}
+                ${exceededHTML}
+                ${statsRowHTML}
+                ${activityHTML}
                 ${leaderboardHTML}
-
-                <div class="last-updated">
-                    Last updated: ${formatDate(stats.lastUpdated)}
-                </div>
+                <div class="last-updated">Updated: ${formatDate(stats.lastUpdated)}</div>
             `;
         }
 
         function renderError() {
-            const widget = document.getElementById('widget');
-            widget.innerHTML = `
-                <div class="error">
-                    Unable to load distance data. Please try again later.
+            document.getElementById('widget').innerHTML = `
+                <div class="tracker-header">
+                    <img src="${LOGO_SRC}" alt="Challenge Logo">
                 </div>
+                <div class="error-state">Unable to load data. Please try again later.</div>
             `;
         }
 
-        async function updateWidget() {
+        async function update() {
             try {
-                const stats = await fetchStats();
-                renderWidget(stats);
-            } catch (error) {
+                renderWidget(await fetchStats());
+            } catch {
                 renderError();
             }
         }
 
-        // Initial load
-        updateWidget();
-
-        // Auto-refresh
-        setInterval(updateWidget, REFRESH_INTERVAL);
+        update();
+        setInterval(update, REFRESH_INTERVAL);
     </script>
 </body>
 </html>

@@ -2,6 +2,7 @@
 // This handles friend authentication and stores their tokens
 
 const express = require('express');
+const session = require('express-session');
 const axios = require('axios');
 const fs = require('fs').promises;
 const path = require('path');
@@ -11,17 +12,33 @@ const PORT = process.env.PORT || 3000;
 
 // IMPORTANT: Replace these with your Strava API credentials
 // Get them from: https://www.strava.com/settings/api
-const STRAVA_CLIENT_ID = process.env.STRAVA_CLIENT_ID || 'CLIENT_ID';
-const STRAVA_CLIENT_SECRET = process.env.STRAVA_CLIENT_SECRET || 'CLIENT_SECRET';
-const REDIRECT_URI = process.env.REDIRECT_URI || `https://strava-tracker.onrender.com/auth/callback`;
+const STRAVA_CLIENT_ID = process.env.STRAVA_CLIENT_ID || 'YOUR_CLIENT_ID';
+const STRAVA_CLIENT_SECRET = process.env.STRAVA_CLIENT_SECRET || 'YOUR_CLIENT_SECRET';
+const REDIRECT_URI = process.env.REDIRECT_URI || `http://localhost:${PORT}/auth/callback`;
 
-// File to store athlete tokens (in production, use a proper database)
-const TOKENS_FILE = path.join(__dirname, 'athlete_tokens.json');
-const STATS_FILE = path.join(__dirname, 'stats.json');
+// Admin authentication
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'change_this_password';
+const SESSION_SECRET = process.env.SESSION_SECRET || 'change_this_secret_key';
+
+// File storage - use persistent disk in production, local files in development
+const DATA_DIR = process.env.NODE_ENV === 'production' ? '/data' : __dirname;
+const TOKENS_FILE = path.join(DATA_DIR, 'athlete_tokens.json');
+const STATS_FILE = path.join(DATA_DIR, 'stats.json');
 
 // Middleware
 app.use(express.json());
 app.use(express.static('public'));
+
+// Session middleware for admin authentication
+app.use(session({
+    secret: SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        secure: process.env.NODE_ENV === 'production', // HTTPS in production
+        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    }
+}));
 
 // Initialize data files if they don't exist
 async function initializeFiles() {
@@ -47,6 +64,18 @@ async function readTokens() {
 async function saveTokens(tokens) {
     await fs.writeFile(TOKENS_FILE, JSON.stringify(tokens, null, 2));
 }
+
+// Admin authentication middleware
+function requireAdminSession(req, res, next) {
+    if (!req.session.isAdmin) {
+        return res.status(401).json({ error: 'Not authenticated' });
+    }
+    next();
+}
+
+// ============================================
+// PUBLIC ROUTES (No authentication required)
+// ============================================
 
 // Root page - landing page for friends
 app.get('/', (req, res) => {
@@ -167,13 +196,16 @@ app.get('/auth/callback', async (req, res) => {
 app.get('/api/stats', async (req, res) => {
     try {
         const data = await fs.readFile(STATS_FILE, 'utf8');
-        res.json(JSON.parse(data));
+        const stats = JSON.parse(data);
+        // Attach the mile target from environment so the widget can use it
+        stats.mileTarget = parseFloat(process.env.MILE_TARGET) || 0;
+        res.json(stats);
     } catch (error) {
         res.status(500).json({ error: 'Failed to read stats' });
     }
 });
 
-// API endpoint to list connected athletes
+// API endpoint to list connected athletes (basic info only)
 app.get('/api/athletes', async (req, res) => {
     try {
         const tokens = await readTokens();
@@ -187,10 +219,15 @@ app.get('/api/athletes', async (req, res) => {
     }
 });
 
-// Manual trigger endpoint for data collection
+// Health check endpoint
+app.get('/health', (req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Manual trigger endpoint for data collection (public for cron services)
 app.get('/api/trigger-collect', async (req, res) => {
     const { exec } = require('child_process');
-    console.log('Manual data collection triggered');
+    console.log('Data collection triggered');
     
     exec('node collect-data.js', (error, stdout, stderr) => {
         if (error) {
@@ -209,23 +246,106 @@ app.get('/api/trigger-collect', async (req, res) => {
     });
 });
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+// ============================================
+// ADMIN AUTHENTICATION ROUTES
+// ============================================
+
+// Admin login endpoint
+app.post('/api/admin/login', async (req, res) => {
+    const { password } = req.body;
+    
+    if (password === ADMIN_PASSWORD) {
+        req.session.isAdmin = true;
+        res.json({ success: true, message: 'Login successful' });
+    } else {
+        res.status(401).json({ error: 'Invalid password' });
+    }
 });
+
+// Admin logout endpoint
+app.post('/api/admin/logout', (req, res) => {
+    req.session.destroy((err) => {
+        if (err) {
+            return res.status(500).json({ error: 'Failed to logout' });
+        }
+        res.json({ success: true, message: 'Logged out' });
+    });
+});
+
+// Check if user is authenticated
+app.get('/api/admin/check', (req, res) => {
+    res.json({ authenticated: !!req.session.isAdmin });
+});
+
+// ============================================
+// PROTECTED ADMIN ROUTES
+// ============================================
+
+// List all athletes with full details (admin only)
+app.get('/api/athletes/list', requireAdminSession, async (req, res) => {
+    try {
+        const tokens = await readTokens();
+        const athletes = Object.keys(tokens).map(id => ({
+            athleteId: id,
+            name: `${tokens[id].firstName} ${tokens[id].lastName}`,
+            connectedAt: tokens[id].connectedAt
+        }));
+        res.json({ athletes });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to list athletes' });
+    }
+});
+
+// Remove an athlete by ID (admin only)
+app.delete('/api/athletes/:athleteId', requireAdminSession, async (req, res) => {
+    try {
+        const { athleteId } = req.params;
+        const tokens = await readTokens();
+        
+        if (!tokens[athleteId]) {
+            return res.status(404).json({ error: 'Athlete not found' });
+        }
+        
+        const athleteName = `${tokens[athleteId].firstName} ${tokens[athleteId].lastName}`;
+        delete tokens[athleteId];
+        await saveTokens(tokens);
+        
+        console.log(`Admin removed athlete: ${athleteName} (ID: ${athleteId})`);
+        
+        res.json({ 
+            success: true, 
+            message: `Removed athlete: ${athleteName}`,
+            athleteId 
+        });
+    } catch (error) {
+        console.error('Error removing athlete:', error);
+        res.status(500).json({ error: 'Failed to remove athlete' });
+    }
+});
+
+// ============================================
+// SERVER STARTUP
+// ============================================
 
 // Start server
 app.listen(PORT, async () => {
     await initializeFiles();
-    console.log(`Server running on https://strava-tracker.onrender.com`);
-    console.log(`Make sure to set your Strava API credentials!`);
+    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`\n=== Configuration ===`);
+    console.log(`Strava Client ID: ${STRAVA_CLIENT_ID === 'YOUR_CLIENT_ID' ? '⚠️  NOT SET' : '✓ Set'}`);
+    console.log(`Admin Password: ${ADMIN_PASSWORD === 'change_this_password' ? '⚠️  Using default (CHANGE THIS!)' : '✓ Set'}`);
+    console.log(`\n=== Admin Panel ===`);
+    console.log(`Visit: http://localhost:${PORT}/admin.html`);
+    console.log(`Password: ${ADMIN_PASSWORD === 'change_this_password' ? 'change_this_password (INSECURE!)' : '[Set via ADMIN_PASSWORD env var]'}`);
     
     // Start cron job for automatic data collection (optional)
     if (process.env.ENABLE_CRON === 'true') {
+        console.log('\n=== Automatic Collection ===');
         console.log('Starting automatic data collection...');
         require('./cron-job');
     } else {
-        console.log('Automatic collection disabled. Set ENABLE_CRON=true to enable.');
-        console.log('Use external cron service to hit /api/trigger-collect endpoint');
+        console.log('\n=== Manual Collection ===');
+        console.log('Automatic collection disabled.');
+        console.log('Set ENABLE_CRON=true to enable, or use /api/trigger-collect endpoint');
     }
 });
