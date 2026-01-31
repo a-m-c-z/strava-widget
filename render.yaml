@@ -20,3 +20,5 @@ services:
         value: "production"
       - key: MILE_TARGET
         value: 840
+      - key: REDIRECT_URI
+        sync: false     
