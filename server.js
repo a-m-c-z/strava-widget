@@ -43,8 +43,12 @@ const sessionOptions = {
 
 if (process.env.NODE_ENV === 'production') {
     const FileStore = require('session-file-store')(session);
+    // Use __dirname (the project folder) not /data here — session-file-store
+    // tries to create this directory synchronously at import time, before
+    // initializeFiles() has had a chance to create /data.
+    // Sessions don't need to survive restarts so this is fine.
     sessionOptions.store = new FileStore({
-        path: path.join(DATA_DIR, 'sessions'),
+        path: path.join(__dirname, 'sessions'),
         ttl: 86400 // 24 hours in seconds
     });
 }
