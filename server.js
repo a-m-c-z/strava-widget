@@ -103,50 +103,7 @@ function requireAdminSession(req, res, next) {
 
 // Root page - landing page for friends
 app.get('/', (req, res) => {
-  res.send(`
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Strava Challenge Tracker</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      max-width: 600px;
-      margin: 50px auto;
-      padding: 20px;
-      text-align: center;
-    }
-    .connect-btn {
-      background-color: #FC4C02;
-      color: white;
-      padding: 15px 30px;
-      border: none;
-      border-radius: 5px;
-      font-size: 18px;
-      cursor: pointer;
-      text-decoration: none;
-      display: inline-block;
-      margin-top: 20px;
-    }
-    .connect-btn:hover {
-      background-color: #E34402;
-    }
-  </style>
-</head>
-<body>
-  <h1>Join Our Strava Challenge!</h1>
-  <p>Connect your Strava account to contribute to our fundraising goal.</p>
-  <a href="/auth/strava" class="connect-btn">
-    <img src="https://activityfix.com/img/btn_strava_connectwith_orange@2x.png"
-         alt="Connect with Strava"
-         style="vertical-align: middle;">
-  </a>
-  <p style="margin-top: 30px; font-size: 12px; color: #666;">
-    By connecting, you allow us to read your activity data to track our collective distance.
-  </p>
-</body>
-</html>
-`);
+  res.sendFile(path.join(__dirname, 'public', 'widget_detailed.html'));
 });
 
 // Initiate Strava OAuth flow
