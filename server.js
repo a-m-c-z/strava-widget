@@ -137,7 +137,7 @@ app.get('/', (req, res) => {
   <h1>Join Our Strava Challenge!</h1>
   <p>Connect your Strava account to contribute to our fundraising goal.</p>
   <a href="/auth/strava" class="connect-btn">
-    <img src="https://developers.strava.com/images/btn_strava_connectwith_orange.svg"
+    <img src="https://activityfix.com/img/btn_strava_connectwith_orange@2x.png"
          alt="Connect with Strava"
          style="vertical-align: middle;">
   </a>
@@ -210,7 +210,16 @@ app.get('/auth/callback', async (req, res) => {
 <body style="font-family: Arial; text-align: center; padding: 50px;">
   <h2>Successfully Connected!</h2>
   <p>Welcome, ${athlete.firstname}! Your activities will now be tracked.</p>
-  <p>You can close this window.</p>
+
+  <p style="margin-top: 20px;">
+    <a href="/widget_detailed.html" style="color: #3182ce; font-weight: bold; text-decoration: none;">
+      Click HERE to view the widget
+    </a>
+  </p>
+
+  <p style="margin-top: 30px;">
+    You can close this window.
+  </p>
 </body>
 </html>
 `);
