@@ -14,8 +14,7 @@ const PORT = process.env.PORT || 3000;
 // Get them from: https://www.strava.com/settings/api
 const STRAVA_CLIENT_ID = process.env.STRAVA_CLIENT_ID || 'YOUR_CLIENT_ID';
 const STRAVA_CLIENT_SECRET = process.env.STRAVA_CLIENT_SECRET || 'YOUR_CLIENT_SECRET';
-const REDIRECT_URI =
-  process.env.REDIRECT_URI || `http://localhost:${PORT}/auth/callback`;
+const REDIRECT_URI = process.env.REDIRECT_URI || `http://localhost:${PORT}/auth/callback`;
 
 // Admin authentication
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'change_this_password';
@@ -228,7 +227,7 @@ app.get('/auth/callback', async (req, res) => {
 });
 
 // ============================================
-// API ROUTES
+// PUBLIC API ROUTES
 // ============================================
 
 app.get('/api/stats', async (req, res) => {
@@ -261,33 +260,95 @@ app.get('/health', (req, res) => {
 
 app.get('/api/trigger-collect', async (req, res) => {
   const { exec } = require('child_process');
+  console.log('Data collection triggered');
+  
   exec('node collect-data.js', (error, stdout) => {
     if (error) {
+      console.error('Collection error:', error.message);
       return res.status(500).json({ success: false, error: error.message });
     }
-    res.json({ success: true, output: stdout });
+    console.log('Collection completed:', stdout);
+    res.json({ success: true, message: 'Data collection completed', output: stdout });
   });
 });
 
 // ============================================
-// ADMIN AUTH
+// ADMIN AUTH ROUTES
 // ============================================
 
 app.post('/api/admin/login', (req, res) => {
-  if (req.body.password === ADMIN_PASSWORD) {
+  const { password } = req.body;
+  
+  console.log('Login attempt');
+  
+  if (password === ADMIN_PASSWORD) {
     req.session.isAdmin = true;
-    res.json({ success: true });
+    console.log('Login successful, session ID:', req.sessionID);
+    res.json({ success: true, message: 'Login successful' });
   } else {
+    console.log('Login failed: password mismatch');
     res.status(401).json({ error: 'Invalid password' });
   }
 });
 
 app.post('/api/admin/logout', (req, res) => {
-  req.session.destroy(() => res.json({ success: true }));
+  req.session.destroy((err) => {
+    if (err) {
+      return res.status(500).json({ error: 'Failed to logout' });
+    }
+    res.json({ success: true, message: 'Logged out' });
+  });
 });
 
 app.get('/api/admin/check', (req, res) => {
-  res.json({ authenticated: !!req.session.isAdmin });
+  console.log('Session check - isAdmin:', req.session?.isAdmin);
+  res.json({ authenticated: !!req.session?.isAdmin });
+});
+
+// ============================================
+// PROTECTED ADMIN ROUTES
+// ============================================
+
+// List all athletes with full details (admin only)
+app.get('/api/athletes/list', requireAdminSession, async (req, res) => {
+  try {
+    const tokens = await readTokens();
+    const athletes = Object.keys(tokens).map(id => ({
+      athleteId: id,
+      name: `${tokens[id].firstName} ${tokens[id].lastName}`,
+      connectedAt: tokens[id].connectedAt
+    }));
+    res.json({ athletes });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to list athletes' });
+  }
+});
+
+// Remove an athlete by ID (admin only)
+app.delete('/api/athletes/:athleteId', requireAdminSession, async (req, res) => {
+  try {
+    const { athleteId } = req.params;
+    const tokens = await readTokens();
+    
+    if (!tokens[athleteId]) {
+      return res.status(404).json({ error: 'Athlete not found' });
+    }
+    
+    const athleteName = `${tokens[athleteId].firstName} ${tokens[athleteId].lastName}`;
+    delete tokens[athleteId];
+    await saveTokens(tokens);
+    
+    console.log(`Admin removed athlete: ${athleteName} (ID: ${athleteId})`);
+    
+    res.json({ 
+      success: true, 
+      message: `Removed athlete: ${athleteName}`,
+      athleteId 
+    });
+  } catch (error) {
+    console.error('Error removing athlete:', error);
+    res.status(500).json({ error: 'Failed to remove athlete' });
+  }
 });
 
 // ============================================
@@ -296,6 +357,12 @@ app.get('/api/admin/check', (req, res) => {
 
 app.listen(PORT, async () => {
   await initializeFiles();
-  console.log(`Server running on http://localhost:${PORT}`);
-  console.log('Storage directory:', DATA_DIR);
+  console.log(`\n=== Server Started ===`);
+  console.log(`Port: ${PORT}`);
+  console.log(`Storage: ${DATA_DIR}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Admin password set: ${ADMIN_PASSWORD !== 'change_this_password' ? 'Yes' : 'No (using default!)'}`);
+  console.log(`\nAdmin panel: http://localhost:${PORT}/admin.html`);
+  console.log(`Widget: http://localhost:${PORT}/widget.html`);
+  console.log(`======================\n`);
 });
