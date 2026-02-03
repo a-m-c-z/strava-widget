@@ -1,141 +1,143 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Athlete Management</title>
-    <style>
-        body { font-family: Arial; max-width: 800px; margin: 50px auto; padding: 20px; }
-        .login-form { max-width: 300px; margin: 100px auto; padding: 30px; background: #f5f5f5; border-radius: 8px; }
-        .login-form input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 4px; }
-        .login-form button { width: 100%; padding: 10px; background: #3182ce; color: white; border: none; border-radius: 4px; cursor: pointer; }
-        .login-form button:hover { background: #2c5282; }
-        .athlete { padding: 15px; margin: 10px 0; background: #f5f5f5; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; }
-        button.remove { background: #e53e3e; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; }
-        button.remove:hover { background: #c53030; }
-        .refresh { background: #3182ce; margin-bottom: 20px; padding: 10px 20px; }
-        .refresh:hover { background: #2c5282; }
-        .logout { background: #718096; margin-left: 10px; }
-        .logout:hover { background: #4a5568; }
-        .hidden { display: none; }
-        .error { color: #e53e3e; margin: 10px 0; }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-    </style>
+  <title>Athlete Management</title>
+  <style>
+    body { font-family: Arial; max-width: 800px; margin: 50px auto; padding: 20px; }
+    .login-form { max-width: 300px; margin: 100px auto; padding: 30px; background: #f5f5f5; border-radius: 8px; }
+    .login-form input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 4px; }
+    .login-form button { width: 100%; padding: 10px; background: #3182ce; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    .login-form button:hover { background: #2c5282; }
+    .athlete { padding: 15px; margin: 10px 0; background: #f5f5f5; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; }
+    button.remove { background: #e53e3e; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; }
+    button.remove:hover { background: #c53030; }
+    .refresh { background: #3182ce; margin-bottom: 20px; padding: 10px 20px; }
+    .refresh:hover { background: #2c5282; }
+    .logout { background: #718096; margin-left: 10px; }
+    .logout:hover { background: #4a5568; }
+    .hidden { display: none; }
+    .error { color: #e53e3e; margin: 10px 0; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  </style>
 </head>
 <body>
-    <!-- Login Form -->
-    <div id="login-section">
-        <div class="login-form">
-            <h2>Admin Login</h2>
-            <input type="password" id="password" placeholder="Enter admin password" />
-            <button onclick="login()">Login</button>
-            <div id="login-error" class="error hidden"></div>
-        </div>
+
+<!-- LOGIN -->
+<div id="login-section">
+  <div class="login-form">
+    <h2>Admin Login</h2>
+    <input type="password" id="password" placeholder="Enter admin password" />
+    <button onclick="login()">Login</button>
+    <div id="login-error" class="error hidden"></div>
+  </div>
+</div>
+
+<!-- ADMIN -->
+<div id="admin-section" class="hidden">
+  <div class="header">
+    <h1>Athlete Management</h1>
+    <div>
+      <button class="refresh" onclick="loadAthletes()">Refresh List</button>
+      <button class="refresh logout" onclick="logout()">Logout</button>
     </div>
+  </div>
+  <div id="athletes"></div>
+</div>
 
-    <!-- Admin Panel -->
-    <div id="admin-section" class="hidden">
-        <div class="header">
-            <h1>Athlete Management</h1>
-            <div>
-                <button class="refresh" onclick="loadAthletes()">Refresh List</button>
-                <button class="refresh logout" onclick="logout()">Logout</button>
-            </div>
-        </div>
-        <div id="athletes"></div>
+<script>
+async function checkSession() {
+  const res = await fetch('/api/admin/check', { credentials: 'include' });
+  const data = await res.json();
+  if (data.authenticated) {
+    showAdminPanel();
+    loadAthletes();
+  }
+}
+
+checkSession();
+
+async function login() {
+  const password = document.getElementById('password').value;
+
+  const res = await fetch('/api/admin/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ password })
+  });
+
+  if (!res.ok) {
+    document.getElementById('login-error').textContent = 'Invalid password';
+    document.getElementById('login-error').classList.remove('hidden');
+    return;
+  }
+
+  document.getElementById('login-error').classList.add('hidden');
+  showAdminPanel();
+  loadAthletes();
+}
+
+async function logout() {
+  await fetch('/api/admin/logout', {
+    method: 'POST',
+    credentials: 'include'
+  });
+
+  document.getElementById('admin-section').classList.add('hidden');
+  document.getElementById('login-section').classList.remove('hidden');
+}
+
+function showAdminPanel() {
+  document.getElementById('login-section').classList.add('hidden');
+  document.getElementById('admin-section').classList.remove('hidden');
+}
+
+async function loadAthletes() {
+  const response = await fetch('/api/athletes/list', {
+    credentials: 'include'
+  });
+
+  if (!response.ok) return;
+
+  const data = await response.json();
+  const container = document.getElementById('athletes');
+
+  if (!data.athletes.length) {
+    container.innerHTML = '<p>No athletes connected yet.</p>';
+    return;
+  }
+
+  container.innerHTML = data.athletes.map(a => `
+    <div class="athlete">
+      <div>
+        <strong>${a.name}</strong><br>
+        <small>ID: ${a.athleteId} • Connected: ${new Date(a.connectedAt).toLocaleDateString()}</small>
+      </div>
+      <button class="remove" onclick="removeAthlete('${a.athleteId}', '${a.name}')">Remove</button>
     </div>
+  `).join('');
+}
 
-    <script>
-        let authToken = sessionStorage.getItem('adminToken');
+async function removeAthlete(id, name) {
+  if (!confirm(`Remove ${name}?`)) return;
 
-        // Check if already logged in
-        if (authToken) {
-            showAdminPanel();
-            loadAthletes();
-        }
+  const response = await fetch(`/api/athletes/${id}`, {
+    method: 'DELETE',
+    credentials: 'include'
+  });
 
-        function login() {
-            const password = document.getElementById('password').value;
-            authToken = password;
-            sessionStorage.setItem('adminToken', password);
-            
-            // Test the password by trying to load athletes
-            loadAthletes().then(() => {
-                document.getElementById('login-error').classList.add('hidden');
-                showAdminPanel();
-            }).catch(err => {
-                document.getElementById('login-error').textContent = 'Invalid password';
-                document.getElementById('login-error').classList.remove('hidden');
-                sessionStorage.removeItem('adminToken');
-                authToken = null;
-            });
-        }
+  const result = await response.json();
+  if (result.success) {
+    loadAthletes();
+  } else {
+    alert(result.error || 'Error removing athlete');
+  }
+}
 
-        function logout() {
-            sessionStorage.removeItem('adminToken');
-            authToken = null;
-            document.getElementById('login-section').classList.remove('hidden');
-            document.getElementById('admin-section').classList.add('hidden');
-        }
+document.getElementById('password').addEventListener('keypress', e => {
+  if (e.key === 'Enter') login();
+});
+</script>
 
-        function showAdminPanel() {
-            document.getElementById('login-section').classList.add('hidden');
-            document.getElementById('admin-section').classList.remove('hidden');
-        }
-
-        async function loadAthletes() {
-            const response = await fetch('/api/athletes/list', {
-                headers: {
-                    'Authorization': `Bearer ${authToken}`
-                }
-            });
-            
-            if (!response.ok) {
-                throw new Error('Authentication failed');
-            }
-            
-            const data = await response.json();
-            
-            const container = document.getElementById('athletes');
-            if (data.athletes.length === 0) {
-                container.innerHTML = '<p>No athletes connected yet.</p>';
-                return;
-            }
-            
-            container.innerHTML = data.athletes.map(athlete => `
-                <div class="athlete">
-                    <div>
-                        <strong>${athlete.name}</strong><br>
-                        <small>ID: ${athlete.athleteId} • Connected: ${new Date(athlete.connectedAt).toLocaleDateString()}</small>
-                    </div>
-                    <button class="remove" onclick="removeAthlete('${athlete.athleteId}', '${athlete.name}')">Remove</button>
-                </div>
-            `).join('');
-        }
-
-        async function removeAthlete(id, name) {
-            if (!confirm(`Remove ${name}?`)) return;
-            
-            const response = await fetch(`/api/athletes/${id}`, { 
-                method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${authToken}`
-                }
-            });
-            const result = await response.json();
-            
-            if (result.success) {
-                alert(`Removed: ${name}`);
-                loadAthletes();
-            } else {
-                alert('Error: ' + result.error);
-            }
-        }
-
-        // Allow Enter key to submit login
-        document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('password')?.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') login();
-            });
-        });
-    </script>
 </body>
 </html>
