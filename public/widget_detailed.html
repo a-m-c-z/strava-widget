@@ -432,12 +432,15 @@
             // Leaderboard
             let leaderboardHTML = '';
             if (stats.athletes && stats.athletes.length > 0) {
+                // Shuffle the athletes array
+                const shuffledAthletes = [...stats.athletes].sort(() => Math.random() - 0.5);
+                
                 leaderboardHTML = `
                     <div>
-                        <div class="section-title">Leaderboard</div>
-                        ${stats.athletes.map((a, i) => `
+                        <div class="section-title">Participants</div>
+                        ${shuffledAthletes.map(a => `
                             <div class="leaderboard-row">
-                                <span class="leaderboard-name">${i + 1}. ${a.name}</span>
+                                <span class="leaderboard-name">${a.name}</span>
                                 <span class="leaderboard-miles">${fmt(toMiles(a.distance))} mi</span>
                             </div>
                         `).join('')}
